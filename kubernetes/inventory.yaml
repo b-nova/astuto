@@ -42,8 +42,8 @@ spec:
       - name: tmp-volume
         emptyDir: {}
       - name: env
-          configMap:
-            name: astuto-configmap
+        configMap:
+          name: astuto-configmap
 
 ---
 apiVersion: v1
