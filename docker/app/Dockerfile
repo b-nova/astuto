@@ -16,6 +16,8 @@ WORKDIR ${APP_ROOT}
 
 # Launch processes in Procfile
 RUN gem install foreman
+RUN gem install nokogiri --platform=ruby
+RUN bundle config set force_ruby_platform true
 
 # Copy Gemfile and install gems
 COPY Gemfile Gemfile.lock ${APP_ROOT}/

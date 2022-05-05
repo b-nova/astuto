@@ -3,8 +3,11 @@ name: Docker Image CI
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+
+env:
+  PROJECT_NAME: astuto
+  CLUSTER_NAME: dev-cluster
+  DO_ACCESS_TOKEN: ${{ secrets.DIGITALOCEAN_DEV_ACCESS_TOKEN }}
 
 jobs:
 
@@ -14,5 +17,40 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-central-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.PROJECT_NAME }}
+        IMAGE_TAG: ${{ env.PROJECT_NAME }}-${{ github.sha }}
+      run: |
+        docker build -f docker/app/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=IMAGE_TAG::$IMAGE_TAG"
+    - name: Update deployment file
+      run: TAG=${{ steps.build-image.outputs.IMAGE_TAG }} && sed -i 's|<IMAGE>|914541419452.dkr.ecr.eu-central-1.amazonaws.com/${{ env.PROJECT_NAME }}:'${TAG}'|' $GITHUB_WORKSPACE/kubernetes/inventory.yaml
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+
+    - name: Install doctl
+      uses: digitalocean/action-doctl@v2
+      with:
+        token: ${{ env.DO_ACCESS_TOKEN }}
+
+    - name: Save DigitalOcean kubeconfig with short-lived credentials
+      run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 ${{ env.CLUSTER_NAME }}
+
+    - name: Deploy to DigitalOcean Kubernetes
+      run: kubectl apply -f $GITHUB_WORKSPACE/kubernetes/inventory.yaml

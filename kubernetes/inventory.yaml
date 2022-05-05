@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: astuto
+  namespace: jams
+  labels:
+    app: astuto
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: astuto
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app: astuto
+    spec:
+      imagePullSecrets:
+      - name: aws-ecr-secret
+      containers:
+      - name: astuto
+        image: <IMAGE>
+        volumeMounts:
+        - name: tmp-volume 
+          mountPath: /tmp        
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 100m
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: astuto-service
+  namespace: jams
+spec:
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+  selector:
+    app: astuto
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jams
