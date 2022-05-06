@@ -29,8 +29,8 @@ spec:
         - name: tmp-volume 
           mountPath: /tmp
         - name: env
-          mountPath: /
-          readOnly: true
+          mountPath: /.env
+          subPath: .env
         ports:
         - containerPort: 3000
         resources:
@@ -44,6 +44,9 @@ spec:
       - name: env
         configMap:
           name: astuto-configmap
+          items:
+            - key: .env
+              path: .env
 
 ---
 apiVersion: v1
